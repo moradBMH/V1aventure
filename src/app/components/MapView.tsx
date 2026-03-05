@@ -1,6 +1,6 @@
 import { Compass, Navigation } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapHeader } from "./MapHeader";
 import { DailyMissions } from "./DailyMissions";
 import { XPNotification } from "./XPNotification";
@@ -30,44 +30,48 @@ export function MapView({ questPins, onPinClick }: MapViewProps) {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showAchievement, setShowAchievement] = useState(false);
 
-  // Simulate animations on mount (for demo)
-  useState(() => {
-    // XP notification
-    setTimeout(() => {
-      setShowXPNotif(true);
-      setTimeout(() => setShowXPNotif(false), 2000);
-    }, 1000);
+  // ✅ Fix: side-effects must be in useEffect, + cleanup timers (prevents double-run in StrictMode)
+  const timers = useRef<number[]>([]);
+  useEffect(() => {
+    timers.current.push(
+      window.setTimeout(() => {
+        setShowXPNotif(true);
+        timers.current.push(window.setTimeout(() => setShowXPNotif(false), 2000));
+      }, 1000),
 
-    // Combo animation
-    setTimeout(() => {
-      setShowCombo(true);
-      setTimeout(() => setShowCombo(false), 2500);
-    }, 3500);
+      window.setTimeout(() => {
+        setShowCombo(true);
+        timers.current.push(window.setTimeout(() => setShowCombo(false), 2500));
+      }, 3500),
 
-    // Discovery animation
-    setTimeout(() => {
-      setShowDiscovery(true);
-      setTimeout(() => setShowDiscovery(false), 3000);
-    }, 6500);
+      window.setTimeout(() => {
+        setShowDiscovery(true);
+        timers.current.push(window.setTimeout(() => setShowDiscovery(false), 3000));
+      }, 6500),
 
-    // Achievement toast
-    setTimeout(() => {
-      setShowAchievement(true);
-      setTimeout(() => setShowAchievement(false), 4000);
-    }, 10000);
+      window.setTimeout(() => {
+        setShowAchievement(true);
+        timers.current.push(window.setTimeout(() => setShowAchievement(false), 4000));
+      }, 10000)
 
-    // Level up animation (optional - uncomment to see)
-    // setTimeout(() => {
-    //   setShowLevelUp(true);
-    //   setTimeout(() => setShowLevelUp(false), 4000);
-    // }, 10000);
-  });
+      // Level up animation (optional)
+      // window.setTimeout(() => {
+      //   setShowLevelUp(true);
+      //   timers.current.push(window.setTimeout(() => setShowLevelUp(false), 4000));
+      // }, 10000)
+    );
+
+    return () => {
+      timers.current.forEach(clearTimeout);
+      timers.current = [];
+    };
+  }, []);
 
   const rarityColors = {
     common: "#d4a574",
     rare: "#4a9eff",
     epic: "#9b59b6",
-  };
+  } as const;
 
   return (
     <div className="relative w-full h-full bg-[#d4c4a8] overflow-hidden">
@@ -115,10 +119,7 @@ export function MapView({ questPins, onPinClick }: MapViewProps) {
 
       {/* Decorative compass rose - Enhanced */}
       <div className="absolute top-6 left-4 z-10">
-        <motion.div
-          whileHover={{ scale: 1.1 }}
-          className="relative"
-        >
+        <motion.div whileHover={{ scale: 1.1 }} className="relative">
           {/* Compass Circle */}
           <motion.div
             animate={{ rotate: 360 }}
@@ -129,10 +130,18 @@ export function MapView({ questPins, onPinClick }: MapViewProps) {
           </motion.div>
 
           {/* Directional markers */}
-          <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-xs font-bold text-[#2a2419]">N</div>
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-xs font-bold text-[#8b6f47]">S</div>
-          <div className="absolute top-1/2 -left-2 -translate-y-1/2 text-xs font-bold text-[#8b6f47]">O</div>
-          <div className="absolute top-1/2 -right-2 -translate-y-1/2 text-xs font-bold text-[#8b6f47]">E</div>
+          <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-xs font-bold text-[#2a2419]">
+            N
+          </div>
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-xs font-bold text-[#8b6f47]">
+            S
+          </div>
+          <div className="absolute top-1/2 -left-2 -translate-y-1/2 text-xs font-bold text-[#8b6f47]">
+            O
+          </div>
+          <div className="absolute top-1/2 -right-2 -translate-y-1/2 text-xs font-bold text-[#8b6f47]">
+            E
+          </div>
 
           {/* Glow effect */}
           <motion.div
@@ -147,10 +156,10 @@ export function MapView({ questPins, onPinClick }: MapViewProps) {
       <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.3 }}>
         <defs>
           <filter id="roadGlow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
             <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
         </defs>
@@ -261,10 +270,10 @@ export function MapView({ questPins, onPinClick }: MapViewProps) {
             style={{
               left: `${pin.x}%`,
               top: `${pin.y}%`,
-              transform: "translate(-50%, -100%)",
             }}
           >
-            <div className="relative">
+            {/* wrapper keeps the translate static so Motion's transforms don't override it */}
+            <div className="relative" style={{ transform: "translate(-50%, -100%)" }}>
               {/* Flag pin - Enhanced */}
               <motion.svg
                 width="50"
@@ -295,54 +304,32 @@ export function MapView({ questPins, onPinClick }: MapViewProps) {
                   style={{ transformOrigin: "12px center" }}
                 />
                 {/* Icon on flag */}
-                <text
-                  x="27"
-                  y="24"
-                  fontSize="14"
-                  textAnchor="middle"
-                  fill="white"
-                >
+                <text x="27" y="24" fontSize="14" textAnchor="middle" fill="white">
                   ⚔
                 </text>
                 {/* Base */}
                 <circle cx="12" cy="55" r="5" fill="#8b6f47" />
               </motion.svg>
 
-              {/* Multiple pulse rings */}
-              <motion.div
-                className="absolute top-8 left-1/2 w-12 h-12 rounded-full border-2 -translate-x-1/2 -translate-y-1/2"
-                style={{ borderColor: pinColor }}
-                animate={{
-                  scale: [1, 2],
-                  opacity: [0.8, 0],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeOut",
-                }}
-              />
-              <motion.div
-                className="absolute top-8 left-1/2 w-12 h-12 rounded-full border-2 -translate-x-1/2 -translate-y-1/2"
-                style={{ borderColor: pinColor }}
-                animate={{
-                  scale: [1, 2],
-                  opacity: [0.8, 0],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeOut",
-                  delay: 1,
-                }}
-              />
+              {/* ✅ Fix: rings use wrapper translate (no transform override glitches) */}
+              <div className="absolute left-1/2 top-8 -translate-x-1/2 -translate-y-1/2">
+                <motion.div
+                  className="w-12 h-12 rounded-full border-2"
+                  initial={{ scale: 1, opacity: 0 }}
+                  style={{ borderColor: pinColor, willChange: "transform, opacity", transform: "translateZ(0)" }}
+                  animate={{ scale: [1, 2], opacity: [0.4, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", repeatType: "mirror" }}
+                />
+              </div>
+              {/* removed delayed second pulse ring to avoid abrupt high-opacity flash */}
 
               {/* Glow */}
               <motion.div
                 className="absolute top-8 left-1/2 w-16 h-16 rounded-full -translate-x-1/2 -translate-y-1/2 blur-xl -z-10"
-                style={{ backgroundColor: pinColor }}
-                animate={{ opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
+                initial={{ opacity: 0 }}
+                style={{ backgroundColor: pinColor, willChange: "opacity, transform", transform: "translateZ(0)" }}
+                animate={{ opacity: [0.25, 0.6, 0.25] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", repeatType: "mirror" }}
               />
 
               {/* Floating particles */}
@@ -350,10 +337,7 @@ export function MapView({ questPins, onPinClick }: MapViewProps) {
                 <motion.div
                   key={i}
                   className="absolute w-1.5 h-1.5 rounded-full bg-white"
-                  style={{
-                    left: "50%",
-                    top: "20px",
-                  }}
+                  style={{ left: "50%", top: "20px" }}
                   animate={{
                     y: [-20, -40],
                     x: [0, (i - 1) * 10],
@@ -363,6 +347,7 @@ export function MapView({ questPins, onPinClick }: MapViewProps) {
                     duration: 2,
                     repeat: Infinity,
                     delay: i * 0.5,
+                    ease: "easeOut",
                   }}
                 />
               ))}
@@ -373,44 +358,34 @@ export function MapView({ questPins, onPinClick }: MapViewProps) {
 
       {/* Player position (center) - ENHANCED */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-        {/* Outer pulse rings */}
-        <motion.div
-          className="absolute inset-0 w-24 h-24 rounded-full border-4 border-[#4a7c59] -translate-x-1/2 -translate-y-1/2"
-          style={{ left: "50%", top: "50%" }}
-          animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
-        <motion.div
-          className="absolute inset-0 w-24 h-24 rounded-full border-4 border-[#4a7c59] -translate-x-1/2 -translate-y-1/2"
-          style={{ left: "50%", top: "50%" }}
-          animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
-          transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-        />
+        {/* ✅ Fix: pulse rings wrapper translate, inner animates */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <motion.div
+            className="w-24 h-24 rounded-full border-4 border-[#4a7c59]"
+            initial={{ scale: 1, opacity: 0 }}
+            style={{ willChange: "transform, opacity", transform: "translateZ(0)" }}
+            animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", repeatType: "mirror" }}
+          />
+        </div>
+        {/* removed second delayed player pulse ring to prevent abrupt flash */}
 
         {/* Player marker */}
         <motion.div
           animate={{ scale: [1, 1.15, 1] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
           className="relative w-16 h-16 rounded-full bg-gradient-to-br from-[#4a7c59] to-[#3a5c44] border-4 border-white shadow-2xl flex items-center justify-center"
         >
           <Navigation className="w-7 h-7 text-white" fill="white" />
-          
+
           {/* Glow */}
           <motion.div
             animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
             className="absolute inset-0 bg-[#4a7c59] rounded-full blur-lg -z-10"
           />
         </motion.div>
 
-        {/* Direction indicator */}
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-8 left-1/2 -translate-x-1/2"
-        >
-          <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[12px] border-b-[#4a7c59]" />
-        </motion.div>
       </div>
     </div>
   );

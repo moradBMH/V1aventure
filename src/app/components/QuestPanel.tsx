@@ -55,7 +55,7 @@ export function QuestPanel({ quests, onQuestClick }: QuestPanelProps) {
       {/* Content */}
       <div className="overflow-y-auto px-4 pb-4" style={{ height: "calc(100% - 60px)" }}>
         <div className="space-y-3">
-          {quests.map((quest) => (
+          {quests.map((quest, index) => (
             <motion.button
               key={quest.id}
               onClick={() => !quest.locked && onQuestClick(quest)}
